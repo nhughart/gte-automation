@@ -506,5 +506,14 @@ check_totals(driver, week_total_hours)
 # we have verified our totals, let's save and move on
 run_gte_time_detail_entries(driver, timesheet_entries, timesheet_mapping)
 
+#save the timesheet for now (no submit)
+elem = find_button(driver, 'Save')
+elem.click()
+timer.sleep(page_wait_for_rows)
+
+# make sure it saved
+if not 'The timecard has been saved successfully.' in driver.page_source:
+    raise ValueError("Warning, did not detect the timesheet was saved, check it!")
+
 driver.quit()
 

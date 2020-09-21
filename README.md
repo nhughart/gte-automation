@@ -1,8 +1,7 @@
 # GTE Automation
 
 See quick video overview:
-https://web.microsoftstream.com/video/9052f802-a57e-4640-afc6-6bb5935e86ba
-
+https://web.microsoftstream.com/video/6889ab2b-9001-46ec-ad33-aaa63d9a0ca6
 
 ![alt text](gte-screen.png "Title")
 

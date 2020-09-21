@@ -1,6 +1,16 @@
 # GTE Automation
 
-This program allows the ability to keep a daily log of timesheet entries per day and project code and then automatically upload data to Oracle Time (Known as GTE Time Entry to Capgemini employess)
+This program allows the ability to keep a daily log of timesheet entries per day and project code and then automatically upload data to Oracle Time (Known as GTE Time Entry to Capgemini employees).
+
+The following features implemented:
+* Designed to run the 'whole' timesheet at the end of the week.
+  * Will not operate on detected pre saved timesheets
+  * Does not work with templates
+* Can set the 'period' in the timesheet file in case you need to do last/next week's sheet.
+* Handles complete "additional details" pages (multiple textboxes).
+* Does not 'submit' the time sheet, just takes it all the way to Save.
+
+  
 
 Usage:
 1.  Keep a 'time-entries.txt' file in the format of

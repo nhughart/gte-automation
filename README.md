@@ -1,7 +1,10 @@
 # GTE Automation
 
-See quick video overview;
+See quick video overview:
 https://web.microsoftstream.com/video/9052f802-a57e-4640-afc6-6bb5935e86ba
+
+
+![alt text](gte-screen.png "Title")
 
 This program allows the ability to keep a daily log of timesheet entries per day and project code and then automatically upload data to Oracle Time (Known as GTE Time Entry to Capgemini employees).
 

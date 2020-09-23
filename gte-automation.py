@@ -483,7 +483,7 @@ login(driver)
 
 # check if we are dealing with a different period
 if 'period' in timesheet_entries[0] and len(timesheet_entries[0].split('=')) == 2:
-    elem = driver.find_element_by_xpath(get_gte_element('Period',0))
+    elem = driver.find_elements_by_tag_name('select')[0]
     period = timesheet_entries[0].split('=')[1]
     print("Setting period of timesheet to: "+period)
     elem.send_keys(period)

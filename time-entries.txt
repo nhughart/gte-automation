@@ -1,6 +1,7 @@
-period=september 14
+period=september 21
 
-9/14
+9/21
+asi
 clubs,internal srcum,30
 int,all hands meeting,30
 clubs,content enclave email,30
@@ -12,7 +13,7 @@ clubs,writeup and replication of data,90
 int,automation for the new timesheet system,90
 int,emails and timesheets,30
 
-9/15
+9/22
 clubs,clubs scrum,30
 clubs,demo call part 2,60
 sales,uniform advantage embroidery call,60
@@ -23,7 +24,7 @@ int,emails and timesheets,75
 sales,uniform advantage followup,60
 int,esop followup,60
 
-9/16
+9/23
 clubs,scrum,30
 clubs,work with V on envs and pricing,30
 clubs,meet with rob and on pricing,30
@@ -35,7 +36,7 @@ citta,holiday timeilne approach,60
 bbwinapp,meeting with nick and team about deliverables and followup,60
 int,timesheet automation,75
 
-9/17
+9/24
 rap,weekly status,15
 clubs,internal scurm and pricing question,30
 cush,internal support scrum,30
@@ -44,7 +45,7 @@ bbwinapp,req meeting about overtake urls,60
 int,one and one with pankaj,45
 int,timesheet automation,60
 
-9/18
+9/25
 clubs,internal clubs scrum,30
 clubs,demo and content handoff call,60
 dartdesign,working on PDP specs,240

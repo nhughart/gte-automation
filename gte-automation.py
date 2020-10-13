@@ -1,11 +1,8 @@
-
 import logging
 import json
-import csv
 import re
 import calendar
 import time as timer
-# from decimal import Decimal
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
@@ -25,13 +22,11 @@ sleep_seconds_between_ops = 1
 page_wait_for_rows = 2
 
 
-#
-
 def login(driver):
     user = ''
     password = ''
     try:
-        creds = open('credentials.txt','r')
+        creds = open('credentials.txt', 'r')
         line = creds.readline()
         user = line.split('=')[1]
         line = creds.readline()
@@ -41,7 +36,7 @@ def login(driver):
         raise ValueError("Some issue with your password file 'credentials.txt', please fix")
 
     driver.get("https://upp.capgemini.com/")
-    #assert "Python" in driver.title
+    # assert "Python" in driver.title
     try:
         ssourl = EC.url_contains("sspoam.capgemini.com")
         WebDriverWait(driver, 20).until(ssourl)
@@ -71,7 +66,8 @@ def login(driver):
         print("Timed out waiting on GTE main page")
         raise "No GTE main page page"
 
-    driver.get("https://upp.capgemini.com/OA_HTML/RF.jsp?function_id=16744&resp_id=71369&resp_appl_id=809&security_group_id=0&lang_code=US&oas=ZyZNPnozfgJIWQBaFio13Q..&params=avwQ4Zpumqk4wM2hnLSEtfVRURgrCch9rnGvV9mMQIc")
+    driver.get(
+        "https://upp.capgemini.com/OA_HTML/RF.jsp?function_id=16744&resp_id=71369&resp_appl_id=809&security_group_id=0&lang_code=US&oas=ZyZNPnozfgJIWQBaFio13Q..&params=avwQ4Zpumqk4wM2hnLSEtfVRURgrCch9rnGvV9mMQIc")
 
 
 def get_time_mapping():
@@ -86,12 +82,9 @@ def get_time_mapping():
 def get_time_entries():
     # load entires
     entries = []
-    with open('time.csv') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            row["Bucket"] = "".join((row['Project'].split()[0], "|", row["Task"]))
-            entries.append(row)
-
+    f = open('time-entries.txt', 'r')
+    entries = f.readlines()
+    f.close()
     return entries
 
 
@@ -103,12 +96,21 @@ def map_time_entries_by_day(timesheet_lines):
     cur_day_lines = []
     cur_day = ''
     for line in timesheet_lines:
-        cur_day = line["Start Date"]
-        if cur_day not in day_map:
-            print("new day: "+cur_day)
-            day_map[cur_day] = []
-        cur_day_lines = day_map.get(cur_day)
-        cur_day_lines.append(line)
+        if 'period' in line:
+            continue
+        line = line.strip()
+        if not line:
+            continue
+        if matcher.match(line):
+            if line in day_map:
+                cur_day_lines = day_map.get(line)
+            else:
+                print("new day: " + line)
+                cur_day = line
+                day_map[line] = []
+                cur_day_lines = day_map.get(line)
+        else:
+            cur_day_lines.append(line)
         day_map[cur_day] = cur_day_lines
     return day_map
 
@@ -120,23 +122,26 @@ def consolidate_time_entries_per_day(timesheet_lines):
     map_of_buckets = {}
     map_of_desc = {}
     for line in timesheet_lines:
-        key = line["Bucket"]
-        time = line["Duration (decimal)"]
-        desc = line["Description"]
-        dhrs = line["Duration (h)"].split(':')
-        time_desc = str(int(dhrs[0])) + ':' + dhrs[1] + ' - ' + desc
-        if key in map_of_buckets:
-            val = float(map_of_buckets.get(key))
-            val = val + float(time)
-            map_of_buckets[key] = val
-        else:
-            map_of_buckets[key] = float(time)
-        if key in map_of_desc:
-            descs = map_of_desc.get(key)
-            newdescs = '\n'.join((descs,time_desc))
-            map_of_desc[key] = newdescs
-        else:
-            map_of_desc[key] = time_desc
+        if 'period' in line:
+            continue
+        if len(line.strip()) > 0:
+            fields = line.split(',')
+            key = fields[0]
+            time = fields[2]
+            desc = fields[1]
+            time_desc = desc + ' (' + time + ')\n'
+            if key in map_of_buckets:
+                val = int(map_of_buckets.get(key))
+                val = val + int(time)
+                map_of_buckets[key] = val
+            else:
+                map_of_buckets[key] = int(time)
+            if key in map_of_desc:
+                descs = map_of_desc.get(key)
+                descs = descs + time_desc
+                map_of_desc[key] = descs
+            else:
+                map_of_desc[key] = time_desc
     return {'map_of_buckets': map_of_buckets, 'map_of_desc': map_of_desc}
 
 
@@ -186,7 +191,7 @@ def run_gte_time_matrix(driver, timesheet_mapping, consolidated_day_map):
                 unique_buckets_for_week.append(sttKey)
     gte_rows = len(unique_buckets_for_week)
     buckets_encountered = []
-    print("will need "+str(gte_rows)+" rows in gte")
+    print("will need " + str(gte_rows) + " rows in gte")
 
     # get global entry descriptions
     globalmap = timesheet_mapping.get('global')
@@ -200,34 +205,34 @@ def run_gte_time_matrix(driver, timesheet_mapping, consolidated_day_map):
                 datestring = datestring + "/2020"
             curdate = datetime.strptime(datestring, '%m/%d/%Y')
             weekday = calendar.day_name[curdate.weekday()]
-            print("\t+-- for day: "+str(curdate)+" ("+weekday+")")
+            print("\t+-- for day: " + str(curdate) + " (" + weekday + ")")
 
             buckets = consolidated_day_map.get(key)
             for sttKey in buckets:
-                print("\t\t+-- working on bucket for "+sttKey)
+                print("\t\t+-- working on bucket for " + sttKey)
                 newline_added = False
                 if sttKey in timesheet_mapping:
                     mapping = timesheet_mapping.get(sttKey)
                     time = buckets[sttKey]
                     if sttKey not in buckets_encountered:
                         if row >= 1:
-                            #elem = find_button(driver,'Add Another Row')
+                            # elem = find_button(driver,'Add Another Row')
                             # elem.click()
                             row = row + 1
                             # try:
                             # timer.sleep(sleep_seconds_between_ops)
-                            #WebDriverWait(driver, page_wait_for_rows).until(EC.visibility_of_element_located((By.XPATH, get_gte_element('Project Details',row))))
+                            # WebDriverWait(driver, page_wait_for_rows).until(EC.visibility_of_element_located((By.XPATH, get_gte_element('Project Details',row))))
                             # except:
                             # app is wonkey, maybe try again?
-                            #elem = find_button(driver,'Add Another Row')
+                            # elem = find_button(driver,'Add Another Row')
                             # elem.click()
                             # timer.sleep(sleep_seconds_between_ops)
-                            #WebDriverWait(driver, page_wait_for_rows).until(EC.visibility_of_element_located((By.XPATH, get_gte_element('Project Details',row))))
+                            # WebDriverWait(driver, page_wait_for_rows).until(EC.visibility_of_element_located((By.XPATH, get_gte_element('Project Details',row))))
                             sttKeys[sttKey] = row
                             newline_added = True
 
                         if row == 0 or newline_added:
-                            #{'Project Details': '100680532', 'Task Details': 'Technical Architecture'}
+                            # {'Project Details': '100680532', 'Task Details': 'Technical Architecture'}
                             if row == 0:
                                 row = 1
                                 sttKeys[sttKey] = 1
@@ -266,7 +271,7 @@ def run_gte_time_matrix(driver, timesheet_mapping, consolidated_day_map):
                             timer.sleep(sleep_seconds_between_ops)
                             elem = driver.find_element_by_xpath(
                                 get_gte_element(weekday, row))
-                            elem.send_keys(str(time/60))
+                            elem.send_keys(str(time / 60))
                             webdriver.ActionChains(
                                 driver).send_keys(Keys.TAB).perform()
                             timer.sleep(sleep_seconds_between_ops)
@@ -289,94 +294,12 @@ def run_gte_time_matrix(driver, timesheet_mapping, consolidated_day_map):
                         existingRow = sttKeys[sttKey]
                         elem = driver.find_element_by_xpath(
                             get_gte_element(weekday, existingRow))
-                        elem.send_keys(str(time/60))
+                        elem.send_keys(str(time / 60))
                         timer.sleep(sleep_seconds_between_ops)
                         # recalculate(driver)
                     buckets_encountered.append(sttKey)
                 else:
                     raise ValueError("ran across a key I have no mapping for.")
-    return unique_buckets_for_week
-
-def make_gte_time_matrix(timesheet_mapping, consolidated_day_map):
-    # loop all the unique buckets I will have for this week
-    '''
-    {'8/31': {'citta': 60,
-          'clubs': 195,
-          'cush': 30,
-          'dartpdp': 30,
-          'int': 45,
-          'lead': 15,
-          'sales': 120},
-        '9/1': {'bbwinapp': 15,
-    '''
-    unique_buckets_for_week = []
-    for key in consolidated_day_map.keys():
-        buckets = consolidated_day_map.get(key)
-        for sttKey in buckets:
-            if sttKey not in unique_buckets_for_week:
-                unique_buckets_for_week.append(sttKey)
-    gte_rows = len(unique_buckets_for_week)
-    buckets_encountered = []
-    print("will need "+str(gte_rows)+" rows in gte")
-
-    # get global entry descriptions
-    globalmap = timesheet_mapping.get('global')
-    row = 0
-    sttKeys = {}
-    for key in consolidated_day_map.keys():
-        if not '-desc' in key:
-            datestring = key
-            if (len(datestring) < 5):
-                # assume 2020
-                datestring = datestring + "/2020"
-            curdate = datetime.strptime(datestring, '%m/%d/%Y')
-            weekday = calendar.day_name[curdate.weekday()]
-            print("\t+-- for day: "+str(curdate)+" ("+weekday+")")
-
-            buckets = consolidated_day_map.get(key)
-            for sttKey in buckets:
-                print("\t\t+-- working on bucket for "+sttKey)
-                newline_added = False
-
-                mapping = timesheet_mapping.get(sttKey)
-                time = buckets[sttKey]
-                if sttKey not in buckets_encountered:
-                    if row >= 1:
-                        #elem = find_button(driver,'Add Another Row')
-                        # elem.click()
-                        row = row + 1
-                        # try:
-                        # timer.sleep(sleep_seconds_between_ops)
-                        #WebDriverWait(driver, page_wait_for_rows).until(EC.visibility_of_element_located((By.XPATH, get_gte_element('Project Details',row))))
-                        # except:
-                        # app is wonkey, maybe try again?
-                        #elem = find_button(driver,'Add Another Row')
-                        # elem.click()
-                        # timer.sleep(sleep_seconds_between_ops)
-                        #WebDriverWait(driver, page_wait_for_rows).until(EC.visibility_of_element_located((By.XPATH, get_gte_element('Project Details',row))))
-                        sttKeys[sttKey] = row
-                        newline_added = True
-
-                    if row == 0 or newline_added:
-                        #{'Project Details': '100680532', 'Task Details': 'Technical Architecture'}
-                        if row == 0:
-                            row = 1
-                            sttKeys[sttKey] = 1
-
-                        task = sttKey.split('|')[0]
-                        details = sttKey.split('|')[1]
-                        location = globalmap.get('Location')
-                        site = globalmap.get('Site')
-                        tasktype = globalmap.get('Type')
-
-                else:
-                    existingRow = sttKeys[sttKey]
-                    elem = driver.find_element_by_xpath(
-                        get_gte_element(weekday, existingRow))
-                    elem.send_keys(str(time/60))
-                    timer.sleep(sleep_seconds_between_ops)
-                    # recalculate(driver)
-                buckets_encountered.append(sttKey)
     return unique_buckets_for_week
 
 
@@ -398,13 +321,14 @@ def get_detail_entries(consolidated_day_map, index):
             if iteration == index:
                 return consolidated_day_map.get(key)
             iteration = iteration + 1
- 
-def run_gte_time_detail_entries(driver,timesheet_entries, timesheet_mapping):
+
+
+def run_gte_time_detail_entries(driver, timesheet_entries, timesheet_mapping):
     print('Filling in task details')
 
     rows = 0
     while detail := find_detail_link(driver, rows):
-        print('Entering detail records for GTE row #'+str(rows))
+        print('Entering detail records for GTE row #' + str(rows))
         rows = rows + 1
         detail.click()
         timer.sleep(2)
@@ -419,16 +343,17 @@ def run_gte_time_detail_entries(driver,timesheet_entries, timesheet_mapping):
             dateLine = parsedDate.strftime('%m/%d')
             dateLine = str(int(dateLine.split('/')[0])) + '/' + str(int(dateLine.split('/')[1]))
             tb = driver.find_elements_by_tag_name('textarea')[counter]
-            tb.send_keys(find_detail_lines_for_date_and_task(dateLine,task,timesheet_entries, timesheet_mapping))
+            tb.send_keys(find_detail_lines_for_date_and_task(dateLine, task, timesheet_entries, timesheet_mapping))
         find_button(driver, 'Apply').click()
-    
-def find_detail_lines_for_date_and_task( dateLine, task, timesheet_entries, timesheet_mapping):
+
+
+def find_detail_lines_for_date_and_task(dateLine, task, timesheet_entries, timesheet_mapping):
     lines = ''
     flag = False
     str_line = ''
     bucket = get_bucket_for_project_code(timesheet_mapping, task)
     if not bucket:
-        raise ValueError("could not find bucket for project code: "+task)
+        raise ValueError("could not find bucket for project code: " + task)
 
     for str_line in timesheet_entries:
         # found a date heading?
@@ -444,14 +369,16 @@ def find_detail_lines_for_date_and_task( dateLine, task, timesheet_entries, time
             if not len(line_parts) == 3:
                 continue
             if line_parts[0] == bucket:
-                lines = lines + line_parts[1].strip() + ' (' + line_parts[2].strip()+ ') \n'
+                lines = lines + line_parts[1].strip() + ' (' + line_parts[2].strip() + ') \n'
     return lines
+
 
 def get_bucket_for_project_code(timesheep_mapping, project_code):
     for x in timesheep_mapping:
         mapping = timesheep_mapping.get(x)
         if mapping.get('Project Details') == project_code:
             return x
+
 
 def find_button(driver, name):
     elems = driver.find_elements_by_css_selector('.x80')
@@ -462,11 +389,12 @@ def find_button(driver, name):
 
 
 def check_totals(driver, total_hours):
-    total = driver.find_element_by_css_selector('td.x26:nth-child(9) > table:nth-child(1) > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(3) > span:nth-child(1)')
+    total = driver.find_element_by_css_selector(
+        'td.x26:nth-child(9) > table:nth-child(1) > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(3) > span:nth-child(1)')
     hours = total.text
     if float(hours) != float(total_hours):
-        raise ValueError("Warning detected only "+hours +
-                         " hours but timesheet has: "+total_hours)
+        raise ValueError("Warning detected only " + hours +
+                         " hours but timesheet has: " + total_hours)
 
 
 def sanity_check_input(timesheet_entries, timesheet_mapping):
@@ -476,7 +404,9 @@ def sanity_check_input(timesheet_entries, timesheet_mapping):
 
     # sanity check in bound data is three cols
     for tline in timesheet_entries:
-        assert ({"Project", "Description", "Task", "Duration (decimal)"} <= tline.keys())
+        assert (len(tline.split(',')) == 3 or len(tline.strip()) == 0 \
+                or matcher.match(tline.strip()) or 'period' in tline)
+
 
 def recalculate(driver):
     # let's make sure it's fully recalculated
@@ -490,7 +420,7 @@ def sanity_check_calcs(summary_time_totals):
     for key in summary_time_totals:
         for sttKey in summary_time_totals.get(key):
             if not '-desc' in sttKey and sttKey not in timesheet_mapping:
-                raise ValueError('You have time entry key ('+sttKey +
+                raise ValueError('You have time entry key (' + sttKey +
                                  ') that is not in timesheet mapping.  Please update.')
 
 
@@ -501,37 +431,43 @@ def get_consolidated_day_map(day_map):
         tlines = day_map.get(key)
         totals = consolidate_time_entries_per_day(tlines)
         consolidated_day_map[key] = totals.get('map_of_buckets')
-        consolidated_day_map[key+'-desc'] = totals.get('map_of_desc')
+        consolidated_day_map[key + '-desc'] = totals.get('map_of_desc')
 
     return consolidated_day_map
+
 
 # gather summaries
 
 
 def summarize_the_week(consolidated_day_map):
     day_summary = []
+    total = 0
     week_total = 0
     for key in consolidated_day_map:
         if '-desc' not in key:
             day_total = 0
             buckets = consolidated_day_map.get(key)
             entries = []
-            entries.append('placeholder')
             for sttKey in buckets:
-                curtotal = float(buckets.get(sttKey))
+                curtotal = int(buckets.get(sttKey))
+                total = total + curtotal
                 day_total = day_total + curtotal
-                entries.append(sttKey + ' (' + str(curtotal) + ' hours)')
-            entries[0] = '== ' + key + ' == day total (' + str(day_total) + ' hours) =='
+                entries.append(sttKey + '( ' + str(curtotal) +
+                               ' mins / ' + str(curtotal / 60) + ' hours)')
+                entries[0] = "== " + key + " == day total (" + str(
+                    day_total) + " mins / " + str(day_total / 60) + " hours) =="
             week_total = week_total + day_total
             day_summary.append(entries)
 
-    week_total_hours = str(week_total)
+    week_total_hours = str(week_total / 60)
     if print_summary_only:
         pprint(day_summary)
         print()
-        print('Week total: ' + str(week_total) + ' hours')
+        print("Week total: " + str(week_total) +
+              ' mins ' + str(week_total / 60) + ' hours')
         exit
     return week_total_hours
+
 
 # login and get to timesheet entry page
 # login(driver)
@@ -545,26 +481,22 @@ sanity_check_input(timesheet_entries, timesheet_mapping)
 
 day_map = map_time_entries_by_day(timesheet_entries)
 consolidated_day_map = get_consolidated_day_map(day_map)
-# sanity_check_calcs(consolidated_day_map)
-
-unique_buckets_for_week = make_gte_time_matrix(timesheet_mapping, consolidated_day_map)
-
+sanity_check_calcs(consolidated_day_map)
 
 week_total_hours = summarize_the_week(consolidated_day_map)
-exit(0)
 
 driver = webdriver.Firefox()
-driver.set_window_size(1400,700)
+driver.set_window_size(1400, 700)
 login(driver)
 
 # check if we are dealing with a different period
 if 'period' in timesheet_entries[0] and len(timesheet_entries[0].split('=')) == 2:
-    elem = driver.find_element_by_xpath(get_gte_element('Period',0))
+    elem = driver.find_element_by_xpath(get_gte_element('Period', 0))
     period = timesheet_entries[0].split('=')[1]
-    print("Setting period of timesheet to: "+period)
+    print("Setting period of timesheet to: " + period)
     elem.send_keys(period)
     timer.sleep(page_wait_for_rows)
-    
+
 # Don't work on a timesheet that already has data saved in it!
 if driver.find_element_by_xpath('//*[@id="B22_1_0"]').get_attribute('value'):
     raise ValueError("Warning!  Detected a already saved timesheet, not proceeding.")
@@ -582,7 +514,7 @@ check_totals(driver, week_total_hours)
 # we have verified our totals, let's save and move on
 run_gte_time_detail_entries(driver, timesheet_entries, timesheet_mapping)
 
-#save the timesheet for now (no submit)
+# save the timesheet for now (no submit)
 elem = find_button(driver, 'Save')
 elem.click()
 timer.sleep(page_wait_for_rows)
@@ -592,4 +524,3 @@ if not 'The timecard has been saved successfully.' in driver.page_source:
     raise ValueError("Warning, did not detect the timesheet was saved, check it!")
 
 driver.quit()
-

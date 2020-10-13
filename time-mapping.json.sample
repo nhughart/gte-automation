@@ -1,0 +1,52 @@
+{
+    "global": {
+        "Type": "RC_Time Std",
+        "Site": "Home",
+        "Location": "Illinois - No Local - IL - USA",
+        "Approver": "All Approvers"
+    },
+    "cush": {
+        "Project Details": "100560527",
+        "Task Details": "Overhead"
+    },
+    "dartta": {
+        "Project Details": "100581656",
+        "Task Details": "Technical Architecture"
+    },
+    "dartdesign": {
+        "Project Details": "100680067",
+        "Task Details": "Technical Architecture"
+    },
+    "clubs": {
+        "Project Details": "100680532",
+        "Task Details": "Technical Architecture"
+    },
+    "lead": {
+        "Project Details": "100529336",
+        "Task Details": "NBT"
+    },
+    "citta": {
+        "Project Details": "100570409",
+        "Task Details": "Technical Architecture"
+    },
+    "int": {
+        "Project Details": "100529327",
+        "Task Details": "NBT"
+    },
+    "bbwinapp": {
+        "Project Details": "100690868",
+        "Task Details": "Technical Architecture"
+    },
+    "sales": {
+        "Project Details": "100548001",
+        "Task Details": "NBT"
+    },
+    "train": {
+        "Project Details": "100529296",
+        "Task Details": "Technical Architecture"
+    },
+    "rap": {
+        "Project Details": "100593408",
+        "Task Details": "Technical Architecture"
+    }
+}

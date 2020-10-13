@@ -1,0 +1,26 @@
+{
+  "clockify": {
+    "id": {
+      "user": "5f74fd7a337efd7a1619ccd4",
+      "workspace": "5f74fd7a337efd7a1619ccd9"
+    },
+    "api": {
+      "key": "X4SYSEPkQlyHR72Y",
+      "url": "https://api.clockify.me/api/v1"
+    },
+    "report": {
+      "url": "https://reports.api.clockify.me/v1",
+      "detail_uri": "/workspaces/{}/reports/detailed"
+    }
+  },
+  "gte": {
+    "settings": {
+      "create_temp_file": 0
+    },
+    "global": {
+      "Type": "RC_Time Std",
+      "Site": "Home",
+      "Location": "Illinois - No Local - IL - USA"
+    }
+  }
+}

@@ -1,11 +1,10 @@
 {
+  "use_week": "2020-10-05",
+  "no_browser": 1,
   "clockify": {
-    "id": {
-      "user": "5f74fd7a337efd7a1619ccd4",
-      "workspace": "5f74fd7a337efd7a1619ccd9"
-    },
     "api": {
-      "key": "X4SYSEPkQlyHR72Y",
+      "comment": "Get API key from Clockify, Settings, Profile - API, API Key area (might need to Generate one)",
+      "key": "{get_from_clockify_settings_profile_api_apikey}",
       "url": "https://api.clockify.me/api/v1"
     },
     "report": {
@@ -16,6 +15,10 @@
   "gte": {
     "settings": {
       "create_temp_file": 0
+    },
+    "credentials": {
+      "user": "username",
+      "password": "password"
     },
     "global": {
       "Type": "RC_Time Std",

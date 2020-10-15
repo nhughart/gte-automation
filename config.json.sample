@@ -1,6 +1,7 @@
 {
   "use_week": "2020-10-05",
-  "no_browser": 1,
+  "comment": "use_browser: null, or \"Chrome\" or \"Firefox\"",
+  "use_browser": "Chrome",
   "clockify": {
     "api": {
       "comment": "Get API key from Clockify, Settings, Profile - API, API Key area (might need to Generate one)",
@@ -14,7 +15,8 @@
   },
   "gte": {
     "settings": {
-      "create_temp_file": 0
+      "create_temp_file": 0,
+      "debug": 1
     },
     "credentials": {
       "user": "username",

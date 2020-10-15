@@ -1,5 +1,6 @@
 *.csv
 config.json
 credentials.txt
+htestml
 time-entries.txt
 time-mapping.json

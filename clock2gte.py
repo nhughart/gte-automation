@@ -2,7 +2,6 @@ import csv
 from datetime import datetime
 from datetime import timedelta
 from dateutil.parser import parse
-import getpass
 import io
 import json
 import os
@@ -11,8 +10,8 @@ from selenium import webdriver
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import Select
+from selenium.webdriver.support import expected_conditions
+# from selenium.webdriver.support.ui import Select
 from selenium.webdriver.common.by import By
 import time as timer
 
@@ -21,7 +20,7 @@ import time as timer
 CONSTANTS
 """
 CONFIG_PATH = './config.json'
-TOTAL_PATH = '__TOTALS'
+MAX_COMMENT = 235
 
 """
 CONFIGURATION
@@ -36,12 +35,16 @@ GLOBALS
 """
 headers = {"X-Api-Key": config['clockify']['api']['key']}
 create_temp_file = config['gte']['settings'].get('create_temp_file', 0)
+gte_debug = config['gte']['settings'].get('debug', 0)
 use_browser = config.get('use_browser', 1)
 wk_type = config['gte']['global']['Type']
 wk_site = config['gte']['global']['Site']
 wk_loc = config['gte']['global']['Location']
-sleep_seconds_between_ops = 1.2
+sleep_seconds_between_ops = 0.1 if not gte_debug else 1
 page_wait_for_rows = 2 * sleep_seconds_between_ops
+delay = 20
+input_delay = 60
+
 totals = [0] * 7
 
 """
@@ -49,41 +52,31 @@ FUNCTIONS AND METHODS
 """
 
 
-def auto_input_data(driver, timesheet_entries):
+def auto_input_data(timesheet_entries):
     row = 0
     for key in timesheet_entries:
+        # prepare for this row "header info"
         row += 1
         codes = key.split('|')
         project = codes[0]
         task = codes[1]
-        data = timesheet_entries[key]
-        auto_input_row(driver, row, project, task, data)
-        #elem = driver.find_element_by_xpath(get_gte_element('Project Details', row))
-        #elem.send_keys(timesheet_entry[''])
-        #webdriver.ActionChains(driver).send_keys(Keys.TAB).perform()
-        #timer.sleep(30)
+        fill_in_fields(row, 'Project Details', project, page_wait_for_rows)
+        fill_in_fields(row, 'Task Details', task, sleep_seconds_between_ops)
+        fill_in_fields(row, 'Type', wk_type, sleep_seconds_between_ops)
+        fill_in_fields(row, 'Site', wk_site, sleep_seconds_between_ops)
+        fill_in_fields(row, 'Location', wk_loc, sleep_seconds_between_ops)
 
+        # prepare and enter the days or "detail info"
+        time_entries = timesheet_entries[key]['time']
+        for day_of_week, time in enumerate(time_entries):
+            if time > 0.0:
+                fill_in_fields(row, day_of_week, time, sleep_seconds_between_ops)
 
-def auto_input_row(driver, row, project, task, data):
-    te = data['time']
-    comments = data['comments']
-    print(
-        "({}) {} - {} : {} : {} : {} | {} | {} | {} | {} | {} | {} | {}".format(
-            row,
-            project,
-            task,
-            wk_type,
-            wk_site,
-            wk_loc,
-            te[0],
-            te[1],
-            te[2],
-            te[3],
-            te[4],
-            te[5],
-            te[6]
-        )
-    )
+        # Now for the comments
+        comments = timesheet_entries[key]['comments']
+        fill_in_comments(row, comments)
+        timer.sleep(10)
+
 
 def accumulate_hours(timesheet_entry, entries):
     bucket = timesheet_entry['Project'].split()[0] + '|' + timesheet_entry['Task']
@@ -137,6 +130,66 @@ def clockify_api_request(end, start):
     return resp
 
 
+def fill_in_comments(row, comments):
+    details_image = 'detailsicon_enabled.gif'
+    details = driver.find_elements_by_xpath("//img[contains(@src, '" + details_image + "')]")
+    # the row is X, but due to 0-based indexing, first return is index 0
+    det = details[row - 1]
+    det.click()
+    try:
+        elem = WebDriverWait(driver, delay).until(
+            expected_conditions.presence_of_element_located(
+                (
+                    By.XPATH, "//button[contains(@title, 'Apply:')]"
+                )
+            )
+        )
+    except TimeoutException:
+        timer.sleep(5)
+        print("Bucket comment page took too long to load!")
+
+    for day_of_week, comment in enumerate(comments):
+        sc = comment.strip()
+        if len(sc) > 0:
+            trimmed_comment = (sc[:MAX_COMMENT] + '...') if len(sc) > MAX_COMMENT else sc
+            elem = driver.find_element_by_xpath(get_gte_comment_element(day_of_week))
+            elem.send_keys(trimmed_comment)
+            webdriver.ActionChains(driver).send_keys(Keys.TAB).perform()
+
+    find_button('Apply').click()
+
+
+def fill_in_fields(row, field, value, nap):
+    # get reference to element based on lookup of the field
+    # NOTE: if field passed as an int, it is referencing one of the days of week
+    if isinstance(field, int):
+        elem = driver.find_element_by_xpath(get_gte_day_element(field, row))
+    else:
+        elem = driver.find_element_by_xpath(get_gte_element(field, row))
+    # fill in the value
+    elem.send_keys(str(value))
+    # tab to next field so field takes
+    webdriver.ActionChains(driver).send_keys(Keys.TAB).perform()
+    # nap time to allow for some XHR to happen
+    timer.sleep(nap)
+
+
+def find_button(name):
+    elems = driver.find_elements_by_css_selector('.x80')
+    for button in elems:
+        if button.text == name:
+            return button
+    return None
+
+
+def get_gte_comment_element(day_of_week):
+    return '//*[@id="B15_{}_N1"]'.format(str(day_of_week))
+
+
+def get_gte_day_element(day_of_week, row):
+    return '//*[@id="B22_{}_{}"]'.format(str(row), str(day_of_week))
+
+
 def get_gte_element(name, row):
     # map of relevant xpath keys we are targeting
     gte_xpath_map = {
@@ -147,23 +200,17 @@ def get_gte_element(name, row):
         "Site": '//*[@id="A27{}N1"]',
         "Location": '//*[@id="A28{}N1display"]',
         "Approver": '//*[@id="A37{}N1"]',
-        "Monday": '//*[@id="B22_{}_0"]',
-        "Tuesday": '//*[@id="B22_{}_1"]',
-        "Wednesday": '//*[@id="B22_{}_2"]',
-        "Thursday": '//*[@id="B22_{}_3"]',
-        "Friday": '//*[@id="B22_{}_4"]',
-        "Saturday": '//*[@id="B22_{}_5"]',
-        "Sunday": '//*[@id="B22_{}_6"]',
-        "Add Another Row": "/html/body/div[5]/form/span[2]/div[3]/div/div[1]/div/div[3]/div[1]/div[2]/span[1]/span/table[1]/tbody/tr/td/table[2]/tbody/tr[5]/td/table/tbody/tr[6]/td[2]/table/tbody/tr[3]/td[1]/table/tbody/tr/td[1]/button"
+        "Add Another Row": "/html/body/div[5]/form/span[2]/div[3]/div/div[1]/div/div[3]/div[1]/div[2]/" +
+                           "span[1]/span/table[1]/tbody/tr/td/table[2]/tbody/tr[5]/td/table/tbody/tr[6]/" +
+                           "td[2]/table/tbody/tr[3]/td[1]/table/tbody/tr/td[1]/button"
     }
 
     return gte_xpath_map.get(name).format(str(row))
 
 
-def get_start_end_week(seed):
-    starter = parse(seed)
-    day_of_week = starter.weekday()
-    start_week = starter - timedelta(days=day_of_week)
+def get_start_end_week(seed_date):
+    starter = parse(seed_date)
+    start_week = starter - timedelta(days=(starter.weekday()))
     start_week = start_week.replace(hour=0, minute=0, second=0, microsecond=0)
     end_week = start_week + timedelta(days=7) - timedelta(seconds=1)
 
@@ -189,24 +236,20 @@ def get_timesheet_from_clockify(start, end):
     return entries
 
 
-def login(driver):
-    user = config['gte']['credentials']['user']
-    delay = 20
-    input_delay = 40
-
+def login():
     driver.get("https://upp.capgemini.com/")
     try:
-        elem = WebDriverWait(driver, delay).until(EC.presence_of_element_located((By.ID, 'login')))
-        elem.send_keys(user)
-        elem = WebDriverWait(driver, delay).until(EC.presence_of_element_located((By.ID, 'passwd')))
+        elem = WebDriverWait(driver, delay).until(expected_conditions.presence_of_element_located((By.ID, 'login')))
+        elem.send_keys(config['gte']['credentials']['user'])
+        elem = WebDriverWait(driver, delay).until(expected_conditions.presence_of_element_located((By.ID, 'passwd')))
         elem.click()
         print("IN BROWSER: Please enter your MobilePass code and click 'Log On' button to proceed...")
     except TimeoutException:
         print("Loading took too much time!")
 
     try:
-        ssourl = EC.url_contains("sspoam.capgemini.com")
-        WebDriverWait(driver, input_delay).until(ssourl)
+        single_sign_on_url = expected_conditions.url_contains("sspoam.capgemini.com")
+        WebDriverWait(driver, input_delay).until(single_sign_on_url)
     except TimeoutException:
         print("Timed out waiting for SSO url")
         raise NameError("SSO timeout")
@@ -215,32 +258,29 @@ def login(driver):
     btn.click()
 
     try:
-        ec = EC.title_contains("Oracle Access Management")
+        ec = expected_conditions.title_contains("Oracle Access Management")
         WebDriverWait(driver, delay).until(ec)
     except TimeoutException:
         print("Timed out waiting on Oracle login page")
         raise NameError("No oracle login page")
 
     elem = driver.find_element_by_xpath("//*[@id=\"username\"]")
-    elem.send_keys(user)
+    elem.send_keys(config['gte']['credentials']['user'])
     elem = driver.find_element_by_xpath("//*[@id=\"password\"]")
     elem.click()
     print("IN BROWSER: Please enter your Capgemini password and click 'Login' button to proceed...")
 
     try:
-        ec = EC.url_contains("upp.capgemini.com/OA_HTML")
+        ec = expected_conditions.url_contains("upp.capgemini.com/OA_HTML")
         WebDriverWait(driver, input_delay).until(ec)
     except TimeoutException:
         print("Timed out waiting on GTE main page")
         raise NameError("No GTE main page page")
 
     driver.get(
-        "https://upp.capgemini.com/OA_HTML/RF.jsp?function_id=16744&resp_id=71369&resp_appl_id=809&security_group_id=0&lang_code=US&oas=ZyZNPnozfgJIWQBaFio13Q..&params=avwQ4Zpumqk4wM2hnLSEtfVRURgrCch9rnGvV9mMQIc")
-
-
-def make_rows_in_timesheet(param):
-
-    pass
+        "https://upp.capgemini.com/OA_HTML/RF.jsp?function_id=16744&resp_id=71369" +
+        "&resp_appl_id=809&security_group_id=0&lang_code=US&oas=ZyZNPnozfgJIWQBaFio13Q.." +
+        "&params=avwQ4Zpumqk4wM2hnLSEtfVRURgrCch9rnGvV9mMQIc")
 
 
 def pull_clockify_info():
@@ -251,6 +291,8 @@ def pull_clockify_info():
     user = resp.json()
     config['clockify']['user_id'] = user['id']
     config['clockify']['workspace_id'] = user['defaultWorkspace']
+
+
 def transform_data(incoming_timesheet):
     entries = {}
     for timesheet_entry in incoming_timesheet:
@@ -260,6 +302,8 @@ def transform_data(incoming_timesheet):
         )
 
     return entries
+
+
 """
 MAIN
 """
@@ -296,28 +340,34 @@ reconfigured_timesheets = transform_data(debug_timesheet_entries)
 
 if use_browser:
     # startup the browser
-    uber_driver = webdriver.Firefox()
+    if use_browser == 'Chrome':
+        driver = webdriver.Chrome()
+    else:
+        driver = webdriver.Firefox()
 
-    uber_driver.set_window_size(1400, 700)
+    driver.set_window_size(1600, 900)
+
     # let's get logged into the application
+    if gte_debug:
+        path = os.getcwd()
+        driver.get("file://{}/htestml/index.html".format(path))
+    else:
+        login()
 
-    login(uber_driver)
-    # check to see if timesheet already used/has values
-
-
+# check to see if timesheet already used/has values
     if (
-        uber_driver.find_element_by_xpath('//*[@id="B22_1_0"]').get_attribute('value') or
-        uber_driver.find_element_by_xpath('//*[@id="B22_1_1"]').get_attribute('value') or
-        uber_driver.find_element_by_xpath('//*[@id="B22_1_2"]').get_attribute('value') or
-        uber_driver.find_element_by_xpath('//*[@id="B22_1_3"]').get_attribute('value') or
-        uber_driver.find_element_by_xpath('//*[@id="B22_1_4"]').get_attribute('value') or
-        uber_driver.find_element_by_xpath('//*[@id="B22_1_5"]').get_attribute('value') or
-        uber_driver.find_element_by_xpath('//*[@id="B22_1_6"]').get_attribute('value')
+        driver.find_element_by_xpath('//*[@id="B22_1_0"]').get_attribute('value') or
+        driver.find_element_by_xpath('//*[@id="B22_1_1"]').get_attribute('value') or
+        driver.find_element_by_xpath('//*[@id="B22_1_2"]').get_attribute('value') or
+        driver.find_element_by_xpath('//*[@id="B22_1_3"]').get_attribute('value') or
+        driver.find_element_by_xpath('//*[@id="B22_1_4"]').get_attribute('value') or
+        driver.find_element_by_xpath('//*[@id="B22_1_5"]').get_attribute('value') or
+        driver.find_element_by_xpath('//*[@id="B22_1_6"]').get_attribute('value')
     ):
         raise ValueError("Warning!  Detected an already saved timesheet, not proceeding.")
 else:
-    uber_driver = None
+    driver = None
 
-auto_input_data(uber_driver, reconfigured_timesheets)
+auto_input_data(reconfigured_timesheets)
 
 print("Hours are at: {}".format(sum(totals)))

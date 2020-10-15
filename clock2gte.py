@@ -40,8 +40,9 @@ use_browser = config.get('use_browser', 1)
 wk_type = config['gte']['global']['Type']
 wk_site = config['gte']['global']['Site']
 wk_loc = config['gte']['global']['Location']
-sleep_seconds_between_ops = 0.1 if not gte_debug else 1
-page_wait_for_rows = 2 * sleep_seconds_between_ops
+sleep_seconds_between_ops = 0.1 if gte_debug else 1.5
+xhr_sleep = 2 * sleep_seconds_between_ops
+page_wait_for_rows = 3 * sleep_seconds_between_ops
 delay = 20
 input_delay = 60
 
@@ -59,9 +60,12 @@ def auto_input_data(timesheet_entries):
         row += 1
         codes = key.split('|')
         project = codes[0]
-        task = codes[1]
-        fill_in_fields(row, 'Project Details', project, page_wait_for_rows)
-        fill_in_fields(row, 'Task Details', task, sleep_seconds_between_ops)
+        fill_in_fields(row, 'Project Details', project, xhr_sleep)
+        task = codes[1].strip() if codes[1].strip() else config['gte']['project_tasks'].get(project, '')
+        if task == '':
+            temp_string = input("We have an empty task - please fill this in!")
+        else:
+            fill_in_fields(row, 'Task Details', task, sleep_seconds_between_ops)
         fill_in_fields(row, 'Type', wk_type, sleep_seconds_between_ops)
         fill_in_fields(row, 'Site', wk_site, sleep_seconds_between_ops)
         fill_in_fields(row, 'Location', wk_loc, sleep_seconds_between_ops)
@@ -75,7 +79,9 @@ def auto_input_data(timesheet_entries):
         # Now for the comments
         comments = timesheet_entries[key]['comments']
         fill_in_comments(row, comments)
-        timer.sleep(10)
+        timer.sleep(page_wait_for_rows)
+    # now we should save the page
+
 
 
 def accumulate_hours(timesheet_entry, entries):
@@ -123,8 +129,7 @@ def clockify_api_request(end, start):
         }
     }
     url = (config['clockify']['report']['url'] +
-           config['clockify']['report']['detail_uri'].
-           format(config['clockify']['workspace_id']))
+           config['clockify']['report']['detail_uri'].format(config['clockify']['workspace_id']))
     resp = requests.post(url=url, json=payload, headers=headers)
 
     return resp
@@ -218,17 +223,22 @@ def get_start_end_week(seed_date):
 
 
 def get_timesheet_from_clockify(start, end):
-    resp = clockify_api_request(end, start)
-    entries = []
+    use_test_csv = config.get('use_test_csv', '').strip()
 
-    if create_temp_file:
-        stream = open('workfile.csv', mode='w+')
-        stream.write(resp.text)
-        stream.seek(0)
+    if len(use_test_csv) > 0:
+        stream = open(use_test_csv, mode='r')
     else:
-        stream = io.StringIO(resp.text)
+        resp = clockify_api_request(end, start)
+
+        if create_temp_file:
+            stream = open('workfile.csv', mode='w+')
+            stream.write(resp.text)
+            stream.seek(0)
+        else:
+            stream = io.StringIO(resp.text)
 
     reader = csv.DictReader(stream)
+    entries = []
     for row in reader:
         entries.append(row)
     stream.close()
@@ -267,8 +277,14 @@ def login():
     elem = driver.find_element_by_xpath("//*[@id=\"username\"]")
     elem.send_keys(config['gte']['credentials']['user'])
     elem = driver.find_element_by_xpath("//*[@id=\"password\"]")
-    elem.click()
-    print("IN BROWSER: Please enter your Capgemini password and click 'Login' button to proceed...")
+    temp_pass = config['gte']['credentials'].get('password', '').strip()
+    if len(temp_pass) > 0:
+        elem.send_keys(temp_pass)
+        elem.send_keys(Keys.RETURN)
+    else:
+        elem.click()
+        print("IN BROWSER: Please enter your Capgemini password and click 'Login' button to proceed...")
+    temp_pass = ''
 
     try:
         ec = expected_conditions.url_contains("upp.capgemini.com/OA_HTML")
@@ -277,10 +293,24 @@ def login():
         print("Timed out waiting on GTE main page")
         raise NameError("No GTE main page page")
 
-    driver.get(
-        "https://upp.capgemini.com/OA_HTML/RF.jsp?function_id=16744&resp_id=71369" +
-        "&resp_appl_id=809&security_group_id=0&lang_code=US&oas=ZyZNPnozfgJIWQBaFio13Q.." +
-        "&params=avwQ4Zpumqk4wM2hnLSEtfVRURgrCch9rnGvV9mMQIc")
+    # At the Recent Timecard page, either find the proper timesheet or create a new one
+    driver.get("https://upp.capgemini.com/OA_HTML/RF.jsp?function_id=11644")
+    find_date = start_of_week.strftime('%d-%b-%Y')
+    xpath = "//table[@id='Hxctcarecentlist:Content']//tr[td//text()='Working' and td//text()='{}']".format(find_date)
+    elements = driver.find_elements_by_xpath(xpath)
+    if len(elements) == 0:
+        # must create a new timecard
+        pass
+    else:
+        # found the right timecard in the "Working" status for this start date
+        elem = elements[0].find_element_by_xpath(".//a[contains(@id, 'Hxctcarecentlist:UpdEnable')]")
+        elem.click()
+
+
+#    driver.get(
+#        "https://upp.capgemini.com/OA_HTML/RF.jsp?function_id=16744&resp_id=71369" +
+#        "&resp_appl_id=809&security_group_id=0&lang_code=US&oas=ZyZNPnozfgJIWQBaFio13Q.." +
+#        "&params=avwQ4Zpumqk4wM2hnLSEtfVRURgrCch9rnGvV9mMQIc")
 
 
 def pull_clockify_info():
@@ -338,35 +368,33 @@ debug_timesheet_entries = get_timesheet_from_clockify(start=start_of_week, end=e
 # arrange those entries in the most efficient way to enter the data into GTE
 reconfigured_timesheets = transform_data(debug_timesheet_entries)
 
-if use_browser:
-    # startup the browser
-    if use_browser == 'Chrome':
-        driver = webdriver.Chrome()
-    else:
-        driver = webdriver.Firefox()
-
-    driver.set_window_size(1600, 900)
-
-    # let's get logged into the application
-    if gte_debug:
-        path = os.getcwd()
-        driver.get("file://{}/htestml/index.html".format(path))
-    else:
-        login()
-
-# check to see if timesheet already used/has values
-    if (
-        driver.find_element_by_xpath('//*[@id="B22_1_0"]').get_attribute('value') or
-        driver.find_element_by_xpath('//*[@id="B22_1_1"]').get_attribute('value') or
-        driver.find_element_by_xpath('//*[@id="B22_1_2"]').get_attribute('value') or
-        driver.find_element_by_xpath('//*[@id="B22_1_3"]').get_attribute('value') or
-        driver.find_element_by_xpath('//*[@id="B22_1_4"]').get_attribute('value') or
-        driver.find_element_by_xpath('//*[@id="B22_1_5"]').get_attribute('value') or
-        driver.find_element_by_xpath('//*[@id="B22_1_6"]').get_attribute('value')
-    ):
-        raise ValueError("Warning!  Detected an already saved timesheet, not proceeding.")
+if use_browser == 'Chrome':
+    driver = webdriver.Chrome()
+elif use_browser == 'Firefox':
+    driver = webdriver.Firefox()
 else:
     driver = None
+
+driver.set_window_size(1600, 900)
+
+# let's get logged into the application
+if gte_debug:
+    path = os.getcwd()
+    driver.get("file://{}/htestml/index.html".format(path))
+else:
+    login()
+
+# check to see if timesheet already used/has values
+if (
+    driver.find_element_by_xpath('//*[@id="B22_1_0"]').get_attribute('value') or
+    driver.find_element_by_xpath('//*[@id="B22_1_1"]').get_attribute('value') or
+    driver.find_element_by_xpath('//*[@id="B22_1_2"]').get_attribute('value') or
+    driver.find_element_by_xpath('//*[@id="B22_1_3"]').get_attribute('value') or
+    driver.find_element_by_xpath('//*[@id="B22_1_4"]').get_attribute('value') or
+    driver.find_element_by_xpath('//*[@id="B22_1_5"]').get_attribute('value') or
+    driver.find_element_by_xpath('//*[@id="B22_1_6"]').get_attribute('value')
+):
+    raise ValueError("Warning!  Detected an already saved timesheet, not proceeding.")
 
 auto_input_data(reconfigured_timesheets)
 

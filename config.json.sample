@@ -1,7 +1,9 @@
 {
-  "use_week": "2020-10-05",
-  "comment": "use_browser: null, or \"Chrome\" or \"Firefox\"",
-  "use_browser": "Chrome",
+  "use_week": "2020-10-12",
+  "comment": "use_test_csv {empty_string} use API from clockify otherwise read in named local file",
+  "use_test_csv": "test.csv",
+  "comment1": "use_browser: null, or \"Chrome\" or \"Firefox\"",
+  "use_browser": "Firefox",
   "clockify": {
     "api": {
       "comment": "Get API key from Clockify, Settings, Profile - API, API Key area (might need to Generate one)",
@@ -15,12 +17,17 @@
   },
   "gte": {
     "settings": {
-      "create_temp_file": 0,
-      "debug": 1
+      "comment": "create_temp_file 0/1 used to see exported csv from clockify",
+      "create_temp_file": 1,
+      "debug": 0,
+      "max_comment_length": 239
     },
     "credentials": {
+      "comment": "user = your Cap 7+1 password...",
       "user": "username",
-      "password": "password"
+      "comment1": "password - if blank or not here, stop and ask you to enter it manually and continue on webpage",
+      "comment2": "         - if you enter it here, we will autofill the password too",
+      "password": ""
     },
     "global": {
       "Type": "RC_Time Std",

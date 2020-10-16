@@ -11,7 +11,7 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
-# from selenium.webdriver.support.ui import Select
+from selenium.webdriver.support.ui import Select
 from selenium.webdriver.common.by import By
 import time as timer
 
@@ -37,10 +37,11 @@ headers = {"X-Api-Key": config['clockify']['api']['key']}
 create_temp_file = config['gte']['settings'].get('create_temp_file', 0)
 gte_debug = config['gte']['settings'].get('debug', 0)
 use_browser = config.get('use_browser', 1)
-wk_type = config['gte']['global']['Type']
-wk_site = config['gte']['global']['Site']
-wk_loc = config['gte']['global']['Location']
-sleep_seconds_between_ops = 0.1 if gte_debug else 1.5
+wk_type = config['gte']['global']['type']
+wk_site = config['gte']['global']['site']
+wk_loc = config['gte']['global']['location']
+mini_pause = 0.1
+sleep_seconds_between_ops = mini_pause if gte_debug else 1.3
 xhr_sleep = 2 * sleep_seconds_between_ops
 page_wait_for_rows = 3 * sleep_seconds_between_ops
 delay = 20
@@ -55,15 +56,15 @@ FUNCTIONS AND METHODS
 
 def auto_input_data(timesheet_entries):
     row = 0
-    for key in timesheet_entries:
+    print("Working on:")
+    for index, (key, timesheet_entry) in enumerate(timesheet_entries.items()):
         # prepare for this row "header info"
         row += 1
-        codes = key.split('|')
-        project = codes[0]
+        project, task = get_mapped_project_task(key)
+        print("Row: {} - {}/{}".format(str(row), project, task))
         fill_in_fields(row, 'Project Details', project, xhr_sleep)
-        task = codes[1].strip() if codes[1].strip() else config['gte']['project_tasks'].get(project, '')
         if task == '':
-            temp_string = input("We have an empty task - please fill this in!")
+            input("We have an empty task - please fill this in.  Hit <ENTER> to continue: ")
         else:
             fill_in_fields(row, 'Task Details', task, sleep_seconds_between_ops)
         fill_in_fields(row, 'Type', wk_type, sleep_seconds_between_ops)
@@ -71,17 +72,16 @@ def auto_input_data(timesheet_entries):
         fill_in_fields(row, 'Location', wk_loc, sleep_seconds_between_ops)
 
         # prepare and enter the days or "detail info"
-        time_entries = timesheet_entries[key]['time']
+        time_entries = timesheet_entry['time']
         for day_of_week, time in enumerate(time_entries):
             if time > 0.0:
-                fill_in_fields(row, day_of_week, time, sleep_seconds_between_ops)
+                fill_in_fields(row, day_of_week, time, mini_pause)
 
         # Now for the comments
-        comments = timesheet_entries[key]['comments']
+        comments = timesheet_entry['comments']
         fill_in_comments(row, comments)
         timer.sleep(page_wait_for_rows)
     # now we should save the page
-
 
 
 def accumulate_hours(timesheet_entry, entries):
@@ -142,7 +142,7 @@ def fill_in_comments(row, comments):
     det = details[row - 1]
     det.click()
     try:
-        elem = WebDriverWait(driver, delay).until(
+        WebDriverWait(driver, delay).until(
             expected_conditions.presence_of_element_located(
                 (
                     By.XPATH, "//button[contains(@title, 'Apply:')]"
@@ -150,7 +150,6 @@ def fill_in_comments(row, comments):
             )
         )
     except TimeoutException:
-        timer.sleep(5)
         print("Bucket comment page took too long to load!")
 
     for day_of_week, comment in enumerate(comments):
@@ -180,8 +179,8 @@ def fill_in_fields(row, field, value, nap):
 
 
 def find_button(name):
-    elems = driver.find_elements_by_css_selector('.x80')
-    for button in elems:
+    buttons = driver.find_elements_by_css_selector('.x80')
+    for button in buttons:
         if button.text == name:
             return button
     return None
@@ -211,6 +210,21 @@ def get_gte_element(name, row):
     }
 
     return gte_xpath_map.get(name).format(str(row))
+
+
+def get_mapped_project_task(key):
+    codes = key.split('|')
+    project = codes[0].strip()
+    task = codes[1].strip() if len(codes) > 1 else ''
+    if len(task) == 0:
+        project_map = config['gte']['project_map'].get(project, None)
+        if project_map:
+            project = project_map.get('project', project_map.get('Project Details', project))
+            task = project_map.get('task', project_map('Task Details', ''))
+        else:
+            raise NameError('Not enough information for project and task lookups')
+
+    return project, task
 
 
 def get_start_end_week(seed_date):
@@ -264,6 +278,8 @@ def login():
         print("Timed out waiting for SSO url")
         raise NameError("SSO timeout")
 
+    print("Proceeding...")
+    # Click on that lame login button on the page with the huge missing image.
     btn = driver.find_element_by_css_selector("body > button:nth-child(2)")
     btn.click()
 
@@ -284,15 +300,18 @@ def login():
     else:
         elem.click()
         print("IN BROWSER: Please enter your Capgemini password and click 'Login' button to proceed...")
-    temp_pass = ''
+
+    # we don't want to hold password in memory if at all possible
+    del temp_pass, config['gte']['credentials']['password']
 
     try:
         ec = expected_conditions.url_contains("upp.capgemini.com/OA_HTML")
         WebDriverWait(driver, input_delay).until(ec)
     except TimeoutException:
         print("Timed out waiting on GTE main page")
-        raise NameError("No GTE main page page")
+        raise NameError("No GTE main page")
 
+    print("Proceeding...")
     # At the Recent Timecard page, either find the proper timesheet or create a new one
     driver.get("https://upp.capgemini.com/OA_HTML/RF.jsp?function_id=11644")
     find_date = start_of_week.strftime('%d-%b-%Y')
@@ -300,17 +319,28 @@ def login():
     elements = driver.find_elements_by_xpath(xpath)
     if len(elements) == 0:
         # must create a new timecard
-        pass
+        create_button = find_button('Create Timecard')
+        create_button.click()
+        try:
+            ec = expected_conditions.presence_of_element_located((By.ID, 'A241N1display'))
+            WebDriverWait(driver, delay).until(ec)
+            select = Select(driver.find_element_by_id('N75'))
+            selected_option = select.first_selected_option
+            wanted_range = "{} - {}".format(
+                start_of_week.strftime('%B %d, %Y'),
+                end_of_week.strftime('%B %d, %Y')
+            )
+            # Here is where we need to figure out if it's the right timecard?
+            if selected_option.text() != wanted_range:
+                print("Hay")
+                raise NameError("This is not the expected Timecard")
+        except TimeoutException:
+            print("Timed out waiting on Timecard Create page")
+            raise NameError("No GTE Timecard create page")
     else:
         # found the right timecard in the "Working" status for this start date
         elem = elements[0].find_element_by_xpath(".//a[contains(@id, 'Hxctcarecentlist:UpdEnable')]")
         elem.click()
-
-
-#    driver.get(
-#        "https://upp.capgemini.com/OA_HTML/RF.jsp?function_id=16744&resp_id=71369" +
-#        "&resp_appl_id=809&security_group_id=0&lang_code=US&oas=ZyZNPnozfgJIWQBaFio13Q.." +
-#        "&params=avwQ4Zpumqk4wM2hnLSEtfVRURgrCch9rnGvV9mMQIc")
 
 
 def pull_clockify_info():
@@ -343,8 +373,7 @@ pull_clockify_info()
 if config.get("use_week"):
     default_date = config["use_week"]
 else:
-    default_date = datetime.now().date()
-    start_of_week, end_of_week = get_start_end_week(str(default_date))
+    start_of_week, end_of_week = get_start_end_week(str(datetime.now().date()))
 
     print("\n\nClockify to GTE")
     print("---------------------------------------------------")

@@ -1,4 +1,7 @@
 #Roadmap
+pip installs needed:
+* hjson
+
 Important pieces of information
 * per row
     * Project
@@ -22,3 +25,4 @@ The way the data is represented IN GTE:
 What can we do?
 API Call to Clockify to get detailed report export in CSV form
 Write that file to CSV locally
+Ingest input to internal data structure

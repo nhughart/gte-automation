@@ -1,38 +1,54 @@
 {
+  "comment1": "key: use_week     - if exists and not blank, we use this date as the start (format: YYYY-MM-DD)",
+  "comment2": "key: use_test_csv - {empty_string} use API from clockify otherwise read in named local file",
+  "comment3": "key: use_browser  - null, or \"Chrome\" or \"Firefox\"",
+  "comment4": "key: input_method - \"clockify\" or \"text\"",
+  "comment5": "   - \"clockify\" : use settings to make API call to get the weekly detailed time report",
+  "comment6": "   - \"text\"     : mimic original Joe Greenwood input method",
   "use_week": "2020-10-12",
-  "comment": "use_test_csv {empty_string} use API from clockify otherwise read in named local file",
   "use_test_csv": "test.csv",
-  "comment1": "use_browser: null, or \"Chrome\" or \"Firefox\"",
   "use_browser": "Firefox",
+  "input_method": "clockify",
   "clockify": {
     "api": {
-      "comment": "Get API key from Clockify, Settings, Profile - API, API Key area (might need to Generate one)",
-      "key": "{get_from_clockify_settings_profile_api_apikey}",
+      "comment1": "Get key from Clockify, Settings, Profile - API, API Key area (might need to Generate one)",
+      "key": "",
       "url": "https://api.clockify.me/api/v1"
     },
     "report": {
+      "comment1": "key: detail_url - the {} is intentional and will be replaced after an API call to get defaults"
       "url": "https://reports.api.clockify.me/v1",
       "detail_uri": "/workspaces/{}/reports/detailed"
     }
   },
   "gte": {
     "settings": {
-      "comment": "create_temp_file 0/1 used to see exported csv from clockify",
+      "comment1": "key: create_temp_file - 0=no/1=yes, used to leave evidence file exported from clockify",
       "create_temp_file": 1,
       "debug": 0,
       "max_comment_length": 239
     },
     "credentials": {
-      "comment": "user = your Cap 7+1 password...",
-      "user": "username",
-      "comment1": "password - if blank or not here, stop and ask you to enter it manually and continue on webpage",
-      "comment2": "         - if you enter it here, we will autofill the password too",
-      "password": ""
+      "comment1": "key: user     - your Cap 7+1 username, will autofill it in the username boxes during the logins",
+      "comment2": "key: password - if blank or not here, stop and ask you to enter it manually and continue on webpage",
+      "comment3": "              - if exists, autofill the password too",
+      "user": "rthacker",
+      "password": "Pa$$w0rd"
     },
     "global": {
+      "comment1": "These are the common pre-fills",
       "Type": "RC_Time Std",
       "Site": "Home",
       "Location": "Illinois - No Local - IL - USA"
+    },
+    "comment1": "key: project_map - holds a map of project aliases a project/task/name map OR",
+    "comment2": " - if you just want a default task for a valid project code with name",
+    "comment3": " - name is not used except to identify the codes if desired",
+    "project_map": {
+      "bench": {"project": "US0799BEN", "name": "Bench", "task": "1"},
+      "US0799BEN": {"name": "Bench", "task": "1"},
+      "US0799ILL": {"name": "Sick", "task": "1"},
+      "US0799VAC": {"name": "PTO/Vacation", "task": "1"}
     }
   }
 }

@@ -445,8 +445,6 @@ if use_browser == 'Chrome':
     driver = webdriver.Chrome()
 elif use_browser == 'Firefox':
     driver = webdriver.Firefox()
-else:
-    driver = None
 
 driver.set_window_size(1600, 900)
 

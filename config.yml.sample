@@ -1,0 +1,92 @@
+---
+# input_method - "clockify" or "text"
+#              - clockify : use settings to make API call to get the weekly detailed time report
+#              - text     : mimic original Joe Greenwood input method
+input_method: clockify
+# use_browser  - null, or "Chrome" or "Firefox"
+use_browser: Firefox
+# use_test_csv - {empty_string} use API from clockify otherwise read in named local file
+# (allows for greater manual control of testing scenarios)
+use_test_csv:
+# use_week     - if exists and not blank, we use this date as the start (format: YYYY-MM-DD)
+use_week: '2020-10-12'
+clockify:
+  api:
+    # Get key from Clockify, Settings, Profile - API, API Key area (might need to Generate one)
+    key: {get_from_clockify}
+    url: https://api.clockify.me/api/v1
+  report:
+    # detail_url - the {} is intentional and will be replaced after an API call to get defaults
+    detail_uri: "/workspaces/{}/reports/detailed"
+    url: https://reports.api.clockify.me/v1
+gte:
+  settings:
+    # create_temp_file - 0=no/1=yes, used to leave evidence file exported from clockify
+    create_temp_file: 1
+    debug: 0
+  credentials:
+    # user     - your Cap 7+1 username, will autofill it in the username boxes during the logins
+    # password - blank or missing, stop and ask you to enter it manually and continue on webpage
+    #          - if exists, autofill the password too
+    user: username
+    password:
+  global:
+    # These are the common pre-fills
+    location: Illinois - No Local - IL - USA
+    site: Home
+    type: RC_Time Std
+  # project_map - holds a map of project aliases a project/task/name map OR
+  #             - if you just want a default task for a valid project code with name
+  #             - name is not used except to identify the codes if desired
+  project_map:
+    '100548001':
+      name: Sales Efforts
+      Project Details: '100548001'
+      Task Details: NBT
+    bbwinapp:
+      Project Details: '100690868'
+      Task Details: Technical Architecture
+    bench:
+      name: Bench
+      project: US0799BEN
+      task: '1'
+    citta:
+      Project Details: '100570409'
+      Task Details: Technical Architecture
+    clubs:
+      Project Details: '100680532'
+      Task Details: Technical Architecture
+    cush:
+      name: Acushnet
+      Project Details: '100560527'
+      Task Details: Overhead
+    dartta:
+      Project Details: '100581656'
+      Task Details: Technical Architecture
+    dartdesign:
+      Project Details: '100680067'
+      Task Details: Technical Architecture
+    int:
+      Project Details: '100529327'
+      Task Details: NBT
+    lead:
+      Project Details: '100529336'
+      Task Details: NBT
+    rap:
+      Project Details: '100593408'
+      Task Details: Technical Architecture
+    sales:
+      Project Details: '100548001'
+      Task Details: NBT
+    train:
+      Project Details: '100529296'
+      Task Details: Technical Architecture
+    US0799BEN:
+      name: Bench
+      task: '1'
+    US0799ILL:
+      name: Sick
+      task: '1'
+    US0799VAC:
+      name: PTO/Vacation
+      task: '1'

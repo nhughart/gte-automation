@@ -14,12 +14,14 @@ from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.common.by import By
 import time as timer
+import yaml
 
 
 """
 CONSTANTS
 """
-CONFIG_PATH = './config.json'
+CONFIG_SCHEMA = 'yml'
+CONFIG_PATH = './config.{}'.format(CONFIG_SCHEMA)
 MAX_COMMENT = 235
 
 """
@@ -28,8 +30,10 @@ CONFIGURATION
 config = {}
 if os.path.isfile(CONFIG_PATH):
     with open(CONFIG_PATH) as config_file:
-        config = json.load(config_file)
-
+        if CONFIG_SCHEMA == 'yml':
+            config = yaml.safe_load(config_file)
+        elif CONFIG_SCHEMA == 'json':
+            config = json.load(config_file)
 """
 GLOBALS
 """
@@ -64,7 +68,8 @@ def auto_input_data(timesheet_entries):
         print("Row: {} - {}/{}".format(str(row), project, task))
         fill_in_fields(row, 'Project Details', project, xhr_sleep)
         if task == '':
-            input("We have an empty task - please fill this in.  Hit <ENTER> to continue: ")
+            print("Incoming data has a missing task / default mapping: {}".format(project))
+            input("Empty task - please fill this in.  Hit <ENTER> to continue: ")
         else:
             fill_in_fields(row, 'Task Details', task, sleep_seconds_between_ops)
         fill_in_fields(row, 'Type', wk_type, sleep_seconds_between_ops)
@@ -220,7 +225,7 @@ def get_mapped_project_task(key):
         project_map = config['gte']['project_map'].get(project, None)
         if project_map:
             project = project_map.get('project', project_map.get('Project Details', project))
-            task = project_map.get('task', project_map('Task Details', ''))
+            task = project_map.get('task', project_map.get('Task Details'))
         else:
             raise NameError('Not enough information for project and task lookups')
 
@@ -236,10 +241,19 @@ def get_start_end_week(seed_date):
     return start_week, end_week
 
 
-def get_timesheet_from_clockify(start, end):
-    use_test_csv = config.get('use_test_csv', '').strip()
+def get_timesheet(start, end):
+    if config.get('input_method', 'text') == 'clockify':
+        entries = get_timesheet_from_clockify(start, end)
+    else:
+        entries = get_timesheet_from_text()
 
-    if len(use_test_csv) > 0:
+    return entries
+
+
+def get_timesheet_from_clockify(start, end):
+    use_test_csv = config.get('use_test_csv')
+
+    if use_test_csv:
         stream = open(use_test_csv, mode='r')
     else:
         resp = clockify_api_request(end, start)
@@ -256,6 +270,43 @@ def get_timesheet_from_clockify(start, end):
     for row in reader:
         entries.append(row)
     stream.close()
+
+    return entries
+
+
+def get_timesheet_from_text():
+    with open('time-entries.txt', 'r') as stream:
+        lines = stream.readlines()
+        entries = []
+        this_date = 0
+        for line in lines:
+            if line.strip() == '':
+                continue
+
+            try:
+                temp = parse(line)
+                this_date = temp
+                continue
+            except ValueError:
+                raw_project, description, raw_minutes = line.split(',')
+                minutes = int(raw_minutes)
+
+                project_map = config['gte']['project_map'].get(raw_project)
+                if project_map:
+                    project = project_map.get('project', project_map.get('Project Details', raw_project))
+                    task = project_map.get('task', project_map.get('Task Details'))
+                else:
+                    raise ValueError('Bad lookup - project: {}'.format(raw_project))
+
+                entry = {
+                    "Project": project,
+                    "Task": task,
+                    "Description": description,
+                    "Start Date": this_date.strftime('%m/%d/%Y'),
+                    "Duration (decimal)": str(float(minutes / 60)),
+                    "Duration (h)": "{:02d}:{:02d}:00".format(int(minutes/60), minutes % 60)
+                }
+                entries.append(entry)
 
     return entries
 
@@ -331,9 +382,10 @@ def login():
                 end_of_week.strftime('%B %d, %Y')
             )
             # Here is where we need to figure out if it's the right timecard?
-            if selected_option.text() != wanted_range:
-                print("Hay")
+            if selected_option.text != wanted_range:
                 raise NameError("This is not the expected Timecard")
+            else:
+                pass
         except TimeoutException:
             print("Timed out waiting on Timecard Create page")
             raise NameError("No GTE Timecard create page")
@@ -367,33 +419,25 @@ def transform_data(incoming_timesheet):
 """
 MAIN
 """
-# Setup dates for report
+if config.get('input_method', 'text') == 'clockify':
+    # try to figure out user_id and workspace from clockify using API key
+    pull_clockify_info()
 
-pull_clockify_info()
+# Setup dates for report
 if config.get("use_week"):
     default_date = config["use_week"]
 else:
     start_of_week, end_of_week = get_start_end_week(str(datetime.now().date()))
-
     print("\n\nClockify to GTE")
-    print("---------------------------------------------------")
-    print("Enter a date in the week to use (format YYYY-MM-DD)")
-    default_date = input("<ENTER> for default range ({} - {}): ".format(
-        start_of_week.date(),
-        end_of_week.date())
-    ) or start_of_week.date()
+    print("-----------------------------------------------------")
+    print("Enter any date in the week to use (format YYYY-MM-DD)")
+    default_date = input("<ENTER> for default ({}): ".format(str(datetime.now().date()))) or start_of_week.date()
 
 start_of_week, end_of_week = get_start_end_week(str(default_date))
-print(
-    "Using date {}, report will be from {} to {}".format(
-        default_date,
-        start_of_week,
-        end_of_week
-    )
-)
+print("Using date {}, report will be from {} to {}".format(default_date, start_of_week, end_of_week))
 
-# get range of entries from Clockify
-debug_timesheet_entries = get_timesheet_from_clockify(start=start_of_week, end=end_of_week)
+# get range of entries from input_method
+debug_timesheet_entries = get_timesheet(start=start_of_week, end=end_of_week)
 # arrange those entries in the most efficient way to enter the data into GTE
 reconfigured_timesheets = transform_data(debug_timesheet_entries)
 
@@ -414,15 +458,10 @@ else:
     login()
 
 # check to see if timesheet already used/has values
-if (
-    driver.find_element_by_xpath('//*[@id="B22_1_0"]').get_attribute('value') or
-    driver.find_element_by_xpath('//*[@id="B22_1_1"]').get_attribute('value') or
-    driver.find_element_by_xpath('//*[@id="B22_1_2"]').get_attribute('value') or
-    driver.find_element_by_xpath('//*[@id="B22_1_3"]').get_attribute('value') or
-    driver.find_element_by_xpath('//*[@id="B22_1_4"]').get_attribute('value') or
-    driver.find_element_by_xpath('//*[@id="B22_1_5"]').get_attribute('value') or
-    driver.find_element_by_xpath('//*[@id="B22_1_6"]').get_attribute('value')
-):
+attribute_value = ''
+for x in range(0, 7):
+    attribute_value += str(driver.find_element_by_xpath('//*[@id="B22_1_{}"]'.format(str(x))).get_attribute('value'))
+if len(attribute_value.strip()):
     raise ValueError("Warning!  Detected an already saved timesheet, not proceeding.")
 
 auto_input_data(reconfigured_timesheets)

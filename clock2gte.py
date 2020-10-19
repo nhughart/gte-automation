@@ -38,7 +38,7 @@ if os.path.isfile(CONFIG_PATH):
 GLOBALS
 """
 headers = {"X-Api-Key": config['clockify']['api']['key']}
-create_temp_file = config['gte']['settings'].get('create_temp_file', 0)
+create_temp_file = config['clockify'].get('create_temp_file', 0)
 gte_debug = config['gte']['settings'].get('debug', 0)
 use_browser = config.get('use_browser', 1)
 wk_type = config['gte']['global']['type']

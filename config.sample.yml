@@ -3,7 +3,7 @@
 #              - clockify : use settings to make API call to get the weekly detailed time report
 #              - text     : mimic original Joe Greenwood input method
 input_method: clockify
-# use_browser  - null, or "Chrome" or "Firefox"
+# use_browser  - "Chrome" or "Firefox"
 use_browser: Firefox
 # use_test_csv - {empty_string} use API from clockify otherwise read in named local file
 # (allows for greater manual control of testing scenarios)
@@ -11,6 +11,8 @@ use_test_csv:
 # use_week     - if exists and not blank, we use this date as the start (format: YYYY-MM-DD)
 use_week: '2020-10-12'
 clockify:
+  # create_temp_file - 0=no/1=yes, used to leave evidence file exported from clockify
+  create_temp_file: 1
   api:
     # Get key from Clockify, Settings, Profile - API, API Key area (might need to Generate one)
     key: {get_from_clockify}
@@ -21,8 +23,6 @@ clockify:
     url: https://reports.api.clockify.me/v1
 gte:
   settings:
-    # create_temp_file - 0=no/1=yes, used to leave evidence file exported from clockify
-    create_temp_file: 1
     debug: 0
   credentials:
     # user     - your Cap 7+1 username, will autofill it in the username boxes during the logins

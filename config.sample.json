@@ -1,7 +1,7 @@
 {
   "comment1": "key: use_week     - if exists and not blank, we use this date as the start (format: YYYY-MM-DD)",
   "comment2": "key: use_test_csv - {empty_string} use API from clockify otherwise read in named local file",
-  "comment3": "key: use_browser  - null, or \"Chrome\" or \"Firefox\"",
+  "comment3": "key: use_browser  - \"Chrome\" or \"Firefox\"",
   "comment4": "key: input_method - \"clockify\" or \"text\"",
   "comment5": "   - \"clockify\" : use settings to make API call to get the weekly detailed time report",
   "comment6": "   - \"text\"     : mimic original Joe Greenwood input method",
@@ -10,6 +10,8 @@
   "use_browser": "Firefox",
   "input_method": "clockify",
   "clockify": {
+    "comment1": "key: create_temp_file - 0=no/1=yes, used to leave evidence file exported from clockify",
+    "create_temp_file": 1,
     "api": {
       "comment1": "Get key from Clockify, Settings, Profile - API, API Key area (might need to Generate one)",
       "key": "",
@@ -23,10 +25,7 @@
   },
   "gte": {
     "settings": {
-      "comment1": "key: create_temp_file - 0=no/1=yes, used to leave evidence file exported from clockify",
-      "create_temp_file": 1,
-      "debug": 0,
-      "max_comment_length": 239
+      "debug": 0
     },
     "credentials": {
       "comment1": "key: user     - your Cap 7+1 username, will autofill it in the username boxes during the logins",

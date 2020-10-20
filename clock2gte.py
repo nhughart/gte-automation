@@ -15,11 +15,13 @@ from selenium.webdriver.support.ui import Select
 from selenium.webdriver.common.by import By
 import time as timer
 import yaml
+from yaml import parser
 
 
 """
 CONSTANTS
 """
+# CONFIG_SCHEMA can be 'yml' or 'json'
 CONFIG_SCHEMA = 'yml'
 CONFIG_PATH = './config.{}'.format(CONFIG_SCHEMA)
 MAX_COMMENT = 235
@@ -28,12 +30,23 @@ MAX_COMMENT = 235
 CONFIGURATION
 """
 config = {}
-if os.path.isfile(CONFIG_PATH):
+try:
     with open(CONFIG_PATH) as config_file:
         if CONFIG_SCHEMA == 'yml':
             config = yaml.safe_load(config_file)
         elif CONFIG_SCHEMA == 'json':
             config = json.load(config_file)
+except FileNotFoundError:
+    print("It appears you don't have a config file: {}".format(CONFIG_PATH))
+    print("You can create one using the {} file provided and reading CONFIG.md".format(
+        CONFIG_PATH.replace('config', 'config.sample')
+    ))
+    quit(1)
+except (yaml.parser.ParserError, json.decoder.JSONDecodeError):
+    print("INVALID {} config file: {}".format(CONFIG_SCHEMA.upper(), CONFIG_PATH))
+    print("Please fix the problem with the file...")
+    quit(1)
+
 """
 GLOBALS
 """

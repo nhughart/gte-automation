@@ -2,6 +2,7 @@
 config.json
 config.yml
 credentials.txt
+geckodriver.log
 htestml
 time-entries.txt
 time-mapping.json

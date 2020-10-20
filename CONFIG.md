@@ -34,7 +34,7 @@
         * **YML** - (use_week:)
         * **JSON** - ("use_week": null)
 * **clockify** - SECTION: if you chose the **input_method** of "clockify", this section will need to be filled out
-  in order to properly communicate with the Clockify API to get the Detailed Report
+  in order to properly communicate with the Clockify API to get the Detailed Report.  It is important to know
   * **create_temp_file** - SETTING: Determines if we create a file when we ask Clockify to export the CSV of the
     Detailed Report.  It can be useful for debugging purposes to see the actual data returned from the report.
     * **VALUES**

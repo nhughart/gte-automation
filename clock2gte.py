@@ -73,12 +73,13 @@ FUNCTIONS AND METHODS
 
 def auto_input_data(timesheet_entries):
     row = 0
-    print("Working on:")
+    print("{} Rows - Working on:".format(len(timesheet_entries)))
     for index, (key, timesheet_entry) in enumerate(timesheet_entries.items()):
         # prepare for this row "header info"
         row += 1
-        project, task = get_mapped_project_task(key)
-        print("Row: {} - {}/{}".format(str(row), project, task))
+        project, task, mapped_name = get_mapped_project_task(key)
+        name = timesheet_entry.get('name', mapped_name)
+        print("Row: {} - {}/{} - {}".format(str(row), project, task, name))
         fill_in_fields(row, 'Project Details', project, xhr_sleep)
         if task == '':
             print("Incoming data has a missing task / default mapping: {}".format(project))
@@ -86,7 +87,7 @@ def auto_input_data(timesheet_entries):
         else:
             fill_in_fields(row, 'Task Details', task, sleep_seconds_between_ops)
         fill_in_fields(row, 'Type', wk_type, sleep_seconds_between_ops)
-        fill_in_fields(row, 'Site', wk_site, sleep_seconds_between_ops)
+        choice_fields(row, 'Site', wk_site, sleep_seconds_between_ops)
         fill_in_fields(row, 'Location', wk_loc, sleep_seconds_between_ops)
 
         # prepare and enter the days or "detail info"
@@ -99,11 +100,12 @@ def auto_input_data(timesheet_entries):
         comments = timesheet_entry['comments']
         fill_in_comments(row, comments)
         timer.sleep(page_wait_for_rows)
-    # now we should save the page
+    # now, should we save the page?  Maybe let the user review it before we save and/or submit?
 
 
 def accumulate_hours(timesheet_entry, entries):
-    bucket = timesheet_entry['Project'].split()[0] + '|' + timesheet_entry['Task']
+    project_info = timesheet_entry['Project'].split('-')
+    bucket = project_info[0].strip() + '|' + timesheet_entry['Task']
     # get the data for the bucket or if none, return empty/initialized data
     data = entries.get(bucket, {'time': [0] * 7, 'comments': [''] * 7})
     day_of_week = parse(timesheet_entry['Start Date']).weekday()
@@ -126,8 +128,20 @@ def accumulate_hours(timesheet_entry, entries):
         new_comments = "\n".join((comments, new_comment))
     data['comments'][day_of_week] = new_comments
     entries[bucket] = data
+    data['name'] = project_info[1].strip()
 
     return entries
+
+
+def choice_fields(row, field, value, nap):
+    # get reference to element based on lookup of the field
+    # NOTE: if field passed as an int, it is referencing one of the days of week
+    select = Select(driver.find_element_by_xpath(get_gte_element(field, row)))
+    # choose the value
+    select.select_by_visible_text(str(value))
+    webdriver.ActionChains(driver).send_keys(Keys.TAB).perform()
+    # nap time to allow for some XHR to happen
+    timer.sleep(nap)
 
 
 def clockify_api_request(end, start):
@@ -234,15 +248,17 @@ def get_mapped_project_task(key):
     codes = key.split('|')
     project = codes[0].strip()
     task = codes[1].strip() if len(codes) > 1 else ''
+    name = '(Name not mapped)'
     if len(task) == 0:
         project_map = config['gte']['project_map'].get(project, None)
         if project_map:
             project = project_map.get('project', project_map.get('Project Details', project))
-            task = project_map.get('task', project_map.get('Task Details'))
+            task = project_map.get('task', project_map.get('Task Details', task))
+            name = project_map.get('name', name)
         else:
             raise NameError('Not enough information for project and task lookups')
 
-    return project, task
+    return project, task, name
 
 
 def get_start_end_week(seed_date):
@@ -424,6 +440,7 @@ def transform_data(incoming_timesheet):
         entries = accumulate_hours(
             timesheet_entry,
             entries
+
         )
 
     return entries

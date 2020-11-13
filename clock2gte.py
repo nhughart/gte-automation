@@ -100,12 +100,19 @@ def auto_input_data(timesheet_entries):
         comments = timesheet_entry['comments']
         fill_in_comments(row, comments)
         timer.sleep(page_wait_for_rows)
-    # now, should we save the page?  Maybe let the user review it before we save and/or submit?
+    # now, we should save the page.  BUT DON'T SUBMIT - make the user do that
+    elem = find_button('Save')
+    elem.click()
+    timer.sleep(page_wait_for_rows)
 
 
 def accumulate_hours(timesheet_entry, entries):
     project_info = timesheet_entry['Project'].split('-')
-    bucket = project_info[0].strip() + '|' + timesheet_entry['Task']
+    task = timesheet_entry['Task']
+    bucket = project_info[0].strip() + '|' + task
+    if task == '':
+        project, task, _ = get_mapped_project_task(bucket)
+        bucket = project + '|' + task
     # get the data for the bucket or if none, return empty/initialized data
     data = entries.get(bucket, {'time': [0] * 7, 'comments': [''] * 7})
     day_of_week = parse(timesheet_entry['Start Date']).weekday()
@@ -440,7 +447,6 @@ def transform_data(incoming_timesheet):
         entries = accumulate_hours(
             timesheet_entry,
             entries
-
         )
 
     return entries

@@ -53,6 +53,7 @@ GLOBALS
 headers = {"X-Api-Key": config['clockify']['api']['key']}
 create_temp_file = config['clockify'].get('create_temp_file', 0)
 gte_debug = config['gte']['settings'].get('debug', 0)
+check_timesheet_date = config['gte']['settings'].get('check_timesheet_date', True)
 use_browser = config.get('use_browser', 1)
 wk_type = config['gte']['global']['type']
 wk_site = config['gte']['global']['site']
@@ -256,14 +257,15 @@ def get_mapped_project_task(key):
     project = codes[0].strip()
     task = codes[1].strip() if len(codes) > 1 else ''
     name = '(Name not mapped)'
-    if len(task) == 0:
-        project_map = config['gte']['project_map'].get(project, None)
-        if project_map:
-            project = project_map.get('project', project_map.get('Project Details', project))
+    project_map = config['gte']['project_map'].get(project, None)
+    if project_map:
+        project = project_map.get('project', project_map.get('Project Details', project))
+        name = project_map.get('name', name)
+        if len(task) == 0:
             task = project_map.get('task', project_map.get('Task Details', task))
-            name = project_map.get('name', name)
-        else:
-            raise NameError('Not enough information for project and task lookups')
+
+    if len(task.strip()) == 0:
+        raise NameError('Not enough information for project and task lookups')
 
     return project, task, name
 
@@ -419,7 +421,10 @@ def login():
             )
             # Here is where we need to figure out if it's the right timecard?
             if selected_option.text != wanted_range:
-                raise NameError("This is not the expected Timecard")
+                if check_timesheet_date:
+                    raise NameError("This is not the expected Timecard")
+                else:
+                    pass
             else:
                 pass
         except TimeoutException:
@@ -455,7 +460,9 @@ def transform_data(incoming_timesheet):
 """
 MAIN
 """
-if config.get('input_method', 'text') == 'clockify':
+test_data_file = config.get('use_test_csv')
+
+if config.get('input_method', 'text') == 'clockify' and not test_data_file:
     # try to figure out user_id and workspace from clockify using API key
     pull_clockify_info()
 

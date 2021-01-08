@@ -398,7 +398,8 @@ def login():
         print("IN BROWSER: Please enter your Capgemini password and click 'Login' button to proceed...")
 
     # we don't want to hold password in memory if at all possible
-    del temp_pass, config['gte']['credentials']['password']
+    temp_pass=''
+    config['gte']['credentials']['password'] = ''
 
     try:
         ec = expected_conditions.url_contains("upp.capgemini.com/OA_HTML")

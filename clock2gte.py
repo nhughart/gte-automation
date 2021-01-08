@@ -111,9 +111,15 @@ def accumulate_hours(timesheet_entry, entries):
     project_info = timesheet_entry['Project'].split('-')
     task = timesheet_entry['Task']
     bucket = project_info[0].strip() + '|' + task
-    if task == '':
-        project, task, _ = get_mapped_project_task(bucket)
-        bucket = project + '|' + task
+    project, task, mapped_name = get_mapped_project_task(bucket)
+    bucket = project + '|' + str(task)
+#    name = timesheet_entry.get('name', mapped_name)
+#    print("Row: {} - {}/{} - {}".format(str(row), project, task, name))
+#    fill_in_fields(row, 'Project Details', project, xhr_sleep)
+
+#    if task == '':
+#        project, task, _ = get_mapped_project_task(bucket)
+#        bucket = project + '|' + task
     # get the data for the bucket or if none, return empty/initialized data
     data = entries.get(bucket, {'time': [0] * 7, 'comments': [''] * 7})
     day_of_week = parse(timesheet_entry['Start Date']).weekday()
@@ -261,10 +267,11 @@ def get_mapped_project_task(key):
     if project_map:
         project = project_map.get('project', project_map.get('Project Details', project))
         name = project_map.get('name', name)
-        if len(task) == 0:
+        force_task = project_map.get('force_task', False)
+        if force_task or len(task) == 0:
             task = project_map.get('task', project_map.get('Task Details', task))
 
-    if len(task.strip()) == 0:
+    if len(str(task).strip()) == 0:
         raise NameError('Not enough information for project and task lookups')
 
     return project, task, name

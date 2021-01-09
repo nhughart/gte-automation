@@ -14,6 +14,8 @@ from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.common.by import By
 import time as timer
+import calendar
+import hashlib
 import yaml
 from yaml import parser
 
@@ -163,8 +165,8 @@ def clockify_api_request(end, start):
         "dateRangeStart": start.isoformat() + 'Z',
         "dateRangeEnd": end.isoformat() + 'Z',
         "detailedFilter": {
-            "page": 1,
-            "pageSize": 50,
+            "page": 2,
+            "pageSize": 200,
             "sortColumn": "DATE"
         },
         "exportType": "CSV",
@@ -311,12 +313,34 @@ def get_timesheet_from_clockify(start, end):
             stream = io.StringIO(resp.text)
 
     reader = csv.DictReader(stream)
-    entries = []
+    entries = {}
+
     for row in reader:
-        entries.append(row)
+        key = hashlib.sha256((
+            row["Project"]
+            + row["Task"]
+            + row["Description"]
+            + row["Start Date"]
+        ).encode()).hexdigest()
+
+        if key in entries:
+            existingRow = entries[key]
+
+            existingTime = timer.strptime(existingRow["Duration (h)"], "%H:%M:%S")
+            newTime = timer.strptime(row["Duration (h)"], "%H:%M:%S")
+
+            newSeconds = calendar.timegm(existingTime) + calendar.timegm(newTime)
+
+            existingRow["Duration (h)"] = timer.strftime("%H:%M:%S", timer.gmtime(newSeconds))
+            existingRow["Duration (decimal)"] = "{:10.2f}".format(float(existingRow["Duration (decimal)"]) + float(row["Duration (decimal)"]))
+
+            entries[key] = existingRow
+        else:
+            entries[key] = row
+
     stream.close()
 
-    return entries
+    return entries.values()
 
 
 def get_timesheet_from_text():

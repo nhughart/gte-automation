@@ -414,6 +414,7 @@ def login():
     find_date = start_of_week.strftime('%d-%b-%Y')
     xpath = "//table[@id='Hxctcarecentlist:Content']//tr[td//text()='Working' and td//text()='{}']".format(find_date)
     elements = driver.find_elements_by_xpath(xpath)
+    # Hxcdatesfrom
     if len(elements) == 0:
         # must create a new timecard
         create_button = find_button('Create Timecard')
@@ -508,6 +509,9 @@ else:
 
 # check to see if timesheet already used/has values
 attribute_value = ''
+# todo - this will fail a timesheet if it already has stuff in first row.
+#  make it more dynamic, check for holiday or something?  figure out where to start the row count for
+#  auto_input_data
 for x in range(0, 7):
     attribute_value += str(driver.find_element_by_xpath('//*[@id="B22_1_{}"]'.format(str(x))).get_attribute('value'))
 if len(attribute_value.strip()):

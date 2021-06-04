@@ -60,11 +60,11 @@ use_browser = config.get('use_browser', 1)
 wk_type = config['gte']['global']['type']
 wk_site = config['gte']['global']['site']
 wk_loc = config['gte']['global']['location']
-mini_pause = 0.1
-sleep_seconds_between_ops = mini_pause if gte_debug else 1.3
+mini_pause = 0.3
+sleep_seconds_between_ops = mini_pause if gte_debug else 2.0
 xhr_sleep = 2 * sleep_seconds_between_ops
 page_wait_for_rows = 3 * sleep_seconds_between_ops
-delay = 20
+delay = 40
 input_delay = 60
 
 totals = [0] * 7
@@ -74,8 +74,8 @@ FUNCTIONS AND METHODS
 """
 
 
-def auto_input_data(timesheet_entries):
-    row = 0
+def auto_input_data(timesheet_entries, starting_row = 0):
+    row = starting_row
     print("{} Rows - Working on:".format(len(timesheet_entries)))
     for index, (key, timesheet_entry) in enumerate(timesheet_entries.items()):
         # prepare for this row "header info"
@@ -531,12 +531,17 @@ else:
     login()
 
 # check to see if timesheet already used/has values
-attribute_value = ''
-for x in range(0, 7):
-    attribute_value += str(driver.find_element_by_xpath('//*[@id="B22_1_{}"]'.format(str(x))).get_attribute('value'))
-if len(attribute_value.strip()):
-    raise ValueError("Warning!  Detected an already saved timesheet, not proceeding.")
+starting_row = 0
+for y in range(1, 30):
+    attribute_value = ''
+    for x in range(0, 6):
+        attribute_value += str(driver.find_element_by_xpath('//*[@id="B22_{}_{}"]'.format(str(y),str(x))).get_attribute('value'))
+    if len(attribute_value.strip()):
+        print("Line length {}".format(str(len(attribute_value.strip()))))
+        starting_row += 1
+    else:
+        break
 
-auto_input_data(reconfigured_timesheets)
+auto_input_data(reconfigured_timesheets, starting_row)
 
 print("Hours are at: {}".format(sum(totals)))

@@ -123,11 +123,12 @@ def accumulate_hours(timesheet_entry, entries):
 #        project, task, _ = get_mapped_project_task(bucket)
 #        bucket = project + '|' + task
     # get the data for the bucket or if none, return empty/initialized data
-    data = entries.get(bucket, {'time': [0] * 7, 'comments': [''] * 7})
+    data = entries.get(bucket, {'time': [0] * 7, 'comments': [''] * 7, 'total_time': 0})
     day_of_week = parse(timesheet_entry['Start Date']).weekday()
     # TIME SECTION
     time_entry = float(timesheet_entry['Duration (decimal)'])
     data['time'][day_of_week] += time_entry
+    data['total_time'] += time_entry
     totals[day_of_week] += time_entry
     # COMMENTS SECTION
     # text hours for the comment entry
@@ -144,7 +145,6 @@ def accumulate_hours(timesheet_entry, entries):
         new_comments = "\n".join((comments, new_comment))
     data['comments'][day_of_week] = new_comments
     entries[bucket] = data
-    data['name'] = project_info[1].strip()
 
     return entries
 
@@ -422,7 +422,7 @@ def login():
         print("IN BROWSER: Please enter your Capgemini password and click 'Login' button to proceed...")
 
     # we don't want to hold password in memory if at all possible
-    temp_pass=''
+    temp_pass = ''
     config['gte']['credentials']['password'] = ''
 
     try:
@@ -438,6 +438,7 @@ def login():
     find_date = start_of_week.strftime('%d-%b-%Y')
     xpath = "//table[@id='Hxctcarecentlist:Content']//tr[td//text()='Working' and td//text()='{}']".format(find_date)
     elements = driver.find_elements_by_xpath(xpath)
+    # Hxcdatesfrom
     if len(elements) == 0:
         # must create a new timecard
         create_button = find_button('Create Timecard')

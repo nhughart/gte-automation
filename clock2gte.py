@@ -400,7 +400,7 @@ def login():
 
     print("Proceeding...")
     # Click on that lame login button on the page with the huge missing image.
-    btn = driver.find_element_by_css_selector("body > button:nth-child(2)")
+    btn = driver.find_element_by_css_selector("body > button")
     btn.click()
 
     try:
